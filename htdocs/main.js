@@ -2,14 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
+var MOUSE_RADIUS = 10;
 var Main = {
   init: function() {
-    var FEEDBACK_SOUND_SOURCE = "24dBshort.wav";
-    Main.feedbackControls = new HandwritingFeedback();
-    Main.feedbackControls.setAudioSource(FEEDBACK_SOUND_SOURCE, function(control) {
-//      Main.feedbackControls.start();
+    var FEEDBACK_SOUND_SOURCE = "24dB.wav";
+    //feedbacks 
+    Main.soundFeedback = new SoundFeedback();
+    Main.soundFeedback.setAudioSource(FEEDBACK_SOUND_SOURCE, function(control) {
     });
+    Main.pressureFeedback = new PressureFeedback();
+    
     Main.canvas = document.getElementById("handwriting-canvas");
     Main.canvasContext = Main.canvas.getContext("2d");
     
@@ -33,39 +35,46 @@ var Main = {
     Main.canvas.setAttribute("height", height);
   },
   
-  startWriting: function(x, y) {
-    //feedback
-    Main.feedbackControls.start(x, y);
-
+  startWriting: function(x, y, radiusX, radiusY, force) {
     //line style 
     // https://developer.mozilla.org/ja/docs/HTML/Canvas/Tutorial/Applying_styles_and_colors?redirectlocale=ja&redirectslug=Canvas_tutorial%2FApplying_styles_and_colors
     Main.canvasContext.strokeStyle = "white";
-    Main.canvasContext.lineWidth = 10;
     Main.canvasContext.lineCap = 'round';
     Main.canvasContext.lineJoin = 'round';
-    
+
+    //feedback
+    Main.soundFeedback.start(x, y);
+    //this feedback change the lineWidth
+    Main.pressureFeedback.start(Main.canvasContext, x, y, radiusX, radiusY, force);
+//    Main.canvasContext.lineWidth = 10;
+
     Main.canvasContext.beginPath();
     Main.canvasContext.moveTo(x, y);
   },
   
-  updateWriting: function(x, y) {
+  updateWriting: function(x, y, radiusX, radiusY, force) {
     //feedback
-    Main.feedbackControls.update(x, y);
+    Main.soundFeedback.update(x, y);
+    Main.pressureFeedback.update(Main.canvasContext, x, y, radiusX, radiusY, force);
 
     Main.canvasContext.lineTo(x, y);
     Main.canvasContext.stroke();
+    Main.canvasContext.closePath();
+    Main.canvasContext.beginPath();
+    Main.canvasContext.moveTo(x, y);
   },
   
-  stopWriting: function(x, y) {
+  stopWriting: function(x, y, radiusX, radiusY, force) {
     Main.canvasContext.closePath();
     //feedback
-    Main.feedbackControls.stop();
+    Main.soundFeedback.stop();
+    Main.pressureFeedback.stop();
   },
   
   mouseDown: function(e) {
     e.preventDefault();
     Main.isWriting = true;
-    Main.startWriting(e.clientX, e.clientY);
+    Main.startWriting(e.clientX, e.clientY, MOUSE_RADIUS, MOUSE_RADIUS, 1);
   },
 
   mouseMove: function(e) {
@@ -73,7 +82,7 @@ var Main = {
     if (!Main.isWriting) {
       return;
     }
-    Main.updateWriting(e.clientX, e.clientY);
+    Main.updateWriting(e.clientX, e.clientY, MOUSE_RADIUS, MOUSE_RADIUS, 1);
   },
 
   mouseUp: function(e) {
@@ -82,14 +91,14 @@ var Main = {
       return;
     }
     Main.isWriting = false;
-    Main.stopWriting(e.clientX, e.clientY);
+    Main.stopWriting(e.clientX, e.clientY, MOUSE_RADIUS, MOUSE_RADIUS, 1);
   },
 
   touchStart: function(e) {
     e.preventDefault();
     Main.isWriting = true;
     var first = e.changedTouches[0];
-    Main.startWriting(first.clientX, first.clientY);
+    Main.startWriting(first.clientX, first.clientY, first.radiusX, first.radiusY, first.force);
   },
 
   touchMove: function(e) {
@@ -98,7 +107,7 @@ var Main = {
       return;
     }
     var first = e.changedTouches[0];
-    Main.updateWriting(first.clientX, first.clientY);
+    Main.updateWriting(first.clientX, first.clientY, first.radiusX, first.radiusY, first.force);
   },
 
   touchEnd: function(e) {
@@ -107,8 +116,8 @@ var Main = {
       return;
     }
     Main.isWriting = false;
-    var first = evt.changedTouches[0];
-    Main.stopWriting(first.clientX, first.clientY);
+    var first = e.changedTouches[0];
+    Main.stopWriting(first.clientX, first.clientY, first.radiusX, first.radiusY, first.force);
   }
 }
 
